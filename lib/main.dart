@@ -1,125 +1,148 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_contacts/flutter_contacts.dart' as flutter_contact;
+import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'home.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const MaterialApp(home: WhatsAppSenderPage(),
+  debugShowCheckedModeBanner: false,
+  ));
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class WhatsAppSenderPage extends StatefulWidget {
+  const WhatsAppSenderPage({Key? key}) : super(key: key);
 
-  // This widget is the root of your application.
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color.fromARGB(255, 66, 18, 3),
+  State<WhatsAppSenderPage> createState() => _WhatsAppSenderPageState();
+}
+
+class _WhatsAppSenderPageState extends State<WhatsAppSenderPage> {
+  flutter_contact.Contact? _selectedContact;
+  String? _selectedPhoneNumber;
+
+  Future<void> pickContact() async {
+  try {
+    if (!await flutter_contact.FlutterContacts.requestPermission()) {
+      print('Permission denied');
+      return;
+    }
+
+    final contact = await flutter_contact.FlutterContacts.openExternalPick();
+
+    if (contact != null && contact.phones.isNotEmpty) {
+      setState(() {
+        _selectedContact = contact;
+        _selectedPhoneNumber = contact.phones.first.number;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Selected: ${contact.displayName} as emergency contact'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
         ),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
-    );
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No valid contact selected'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  } catch (e) {
+    print('Error picking contact: $e');
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+  String _sanitizePhoneNumber(String number) {
+    String phone = number.replaceAll(RegExp(r'\D'), '');
+    if (phone.startsWith('00')) {
+      phone = phone.substring(2);
+    } else if (phone.startsWith('0')) {
+      phone = phone.substring(1);
+    }
+    return phone;
+  }
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
+  Future<Position?> _getCurrentLocation() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return null;
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) return null;
+    }
+    if (permission == LocationPermission.deniedForever) return null;
+    return await Geolocator.getCurrentPosition();
+  }
 
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
+  Future<void> _sendWhatsApp() async {
+    if (_selectedPhoneNumber == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please pick a contact first")),
+      );
+      return;
+    }
 
-  final String title;
+    String phone = _sanitizePhoneNumber(_selectedPhoneNumber!);
 
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
+    final pos = await _getCurrentLocation();
+    String locationText = '';
+    if (pos != null) {
+      locationText =
+          "\nLocation: https://maps.google.com/?q=${pos.latitude},${pos.longitude}";
+    }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+    final message = Uri.encodeComponent("Hello from Flutter!$locationText");
+    final url = Uri.parse("https://wa.me/$phone?text=$message");
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Could not launch WhatsApp")),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
+      appBar: AppBar(title: const Text('WhatsApp Sender')),
       body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
         child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
           mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+          children: [
+            ElevatedButton(
+              onPressed: pickContact,
+              child: const Text('Pick Contact'),
+            ),
+            if (_selectedContact != null)
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(
+                  'Selected: ${_selectedContact!.displayName}\n${_selectedPhoneNumber ?? ""}',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ElevatedButton(
+              onPressed: _sendWhatsApp,
+              child: const Text('Send WhatsApp'),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => HomeScreen()),
+                );
+              },
+              child: const Text('Go to Home'),
             ),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }

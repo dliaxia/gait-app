@@ -1,0 +1,45 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Attach to Edge",
+            "port": 9222,
+            "request": "attach",
+            "type": "msedge",
+            "webRoot": "${workspaceFolder}"
+        },
+        {
+            "name": "Flutter for web",
+            "type": "dart",
+            "request": "launch",
+            "program": "lib/main.dart",
+            "args": [
+              "-d",
+              "edge"
+            ]
+        },
+        {
+            "name": "gait-app",
+            "request": "launch",
+            "type": "dart",
+            "deviceId": "edge" // Use Microsoft Edge for debugging
+        },
+        {
+            "name": "gait-app (profile mode)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile",
+            "deviceId": "edge" // Use Microsoft Edge for debugging
+        },
+        {
+            "name": "gait-app (release mode)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release",
+            "deviceId": "edge" // Use Microsoft Edge for debugging
+        }
+    ]
+}

@@ -1,0 +1,6 @@
+{
+    "terminal.integrated.cursorStyle": "block",
+    "editor.overtypeCursorStyle": "block",
+    "editor.cursorStyle": "line",
+    "cmake.ignoreCMakeListsMissing": true
+}
