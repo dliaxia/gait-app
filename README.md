@@ -1,6 +1,6 @@
 # gait_app
 
-A new Flutter project.
+A Smart walking frame application.
 
 ## Getting Started
 
